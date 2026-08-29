@@ -2,3 +2,5 @@
 .next/
 .env*
 !.env.example
+
+tsconfig.tsbuildinfo
