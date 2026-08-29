@@ -2,10 +2,13 @@
 
 import {
   FormEvent,
+  useEffect,
   useMemo,
   useState,
   useSyncExternalStore,
 } from "react";
+import Link from "next/link";
+import { createClient } from "@/lib/supabase/client";
 
 type Category =
   | "Books"
@@ -42,6 +45,7 @@ type FormState = {
 
 const STORAGE_KEY = "giveback-listings-v2";
 const SAVED_KEY = "giveback-saved-v2";
+const EMPTY_SAVED: string[] = [];
 
 const categories: Array<"All" | Category> = [
   "All",
@@ -256,7 +260,7 @@ function getSavedSnapshot(): string[] {
 }
 
 function getServerSavedSnapshot(): string[] {
-  return [];
+  return EMPTY_SAVED;
 }
 
 function subscribeToSaved(listener: () => void) {
@@ -406,7 +410,67 @@ export default function Home() {
   );
   const [showGive, setShowGive] = useState(false);
   const [toast, setToast] = useState("");
-  const [showSavedOnly, setShowSavedOnly] = useState(false);
+  const [showSavedOnly, setShowSavedOnly] = useState(false); 
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadRealListings() {
+      const supabase = createClient();
+
+      const { data, error } = await supabase
+        .from("listings")
+        .select("id,title,category,condition,city,description,created_at,status")
+        .eq("status", "active")
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.error("GiveBack listings could not be loaded:", error);
+        return;
+      }
+
+      if (cancelled || !data) {
+        return;
+      }
+
+      const realItems: Item[] = data.map((listing) => ({
+        id: listing.id,
+        title: listing.title,
+        category: (listing.category in categoryEmoji
+          ? listing.category
+          : "Other") as Category,
+        condition:
+          listing.condition === "like_new"
+            ? "Like new"
+            : listing.condition === "fair"
+              ? "Fair"
+              : listing.condition === "new"
+                ? "Like new"
+                : "Good",
+        area: listing.city,
+        emoji:
+          listing.category in categoryEmoji
+            ? categoryEmoji[listing.category as Category]
+            : "📦",
+        note: listing.description,
+        createdAt: new Date(listing.created_at).getTime(),
+        tag: "GiveBack listing",
+      }));
+
+      const localItems = items.filter(
+        (item) =>
+          item.id.startsWith("local-") ||
+          item.id.startsWith("seed-"),
+      );
+
+      updateListings([...realItems, ...localItems]);
+    }
+
+    loadRealListings();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const [form, setForm] = useState<FormState>({
     title: "",
@@ -865,7 +929,7 @@ export default function Home() {
                 >
                   <button
                     className="w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--leaf)]"
-                    onClick={() => setSelected(item)}
+                    onClick={() => { if (item.id.startsWith("seed-") || item.id.startsWith("local-")) { setSelected(item); } else { window.location.href = `/listing/${encodeURIComponent(item.id)}`; } }}
                     aria-label={`View ${item.title}`}
                   >
                     <div className="relative flex h-48 items-center justify-center bg-[#ded9cc] text-7xl">
@@ -1343,3 +1407,8 @@ export default function Home() {
     </main>
   );
 }
+
+
+
+
+

@@ -1,0 +1,9 @@
+"use client";
+import { FormEvent, useState } from "react";
+import Link from "next/link";
+import { createClient } from "@/lib/supabase/client";
+export default function LoginPage() {
+ const [email,setEmail]=useState(""),[password,setPassword]=useState(""),[error,setError]=useState(""),[busy,setBusy]=useState(false);
+ async function submit(e:FormEvent){e.preventDefault();setBusy(true);setError("");const {error}=await createClient().auth.signInWithPassword({email,password});if(error)setError(error.message);else window.location.href="/dashboard";setBusy(false);}
+ return <main className="mx-auto max-w-md px-5 py-16"><div className="card p-8"><h1 className="text-3xl font-black">Welcome back</h1><p className="mt-2 text-[var(--muted)]">Sign in to manage your giving, requests and private conversations.</p><form onSubmit={submit} className="mt-8 space-y-4"><label className="block text-sm font-bold">Email<input required type="email" value={email} onChange={e=>setEmail(e.target.value)} className="mt-1 w-full rounded-xl border p-3"/></label><label className="block text-sm font-bold">Password<input required type="password" value={password} onChange={e=>setPassword(e.target.value)} className="mt-1 w-full rounded-xl border p-3"/></label>{error&&<p className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}<button disabled={busy} className="w-full rounded-xl bg-[var(--leaf)] p-3 font-black text-white disabled:opacity-50">{busy?"Signing in…":"Log in"}</button></form><p className="mt-6 text-sm">New here? <Link className="font-bold underline" href="/signup">Create an account</Link></p></div></main>;
+}
